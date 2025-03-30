@@ -665,7 +665,7 @@ def predict_mechanism(
     steps = generate_mechanism_steps(best_mech, rearrange=rearr)
     selectivity_info = analyze_selectivity(substrate_data, condition_data)
 
-    return {
+    return format_prediction_output({
         "success": True,
         "ranking": dict(sorted_by_score),
         "best_mechanism": best_mech,
@@ -693,7 +693,7 @@ def predict_mechanism(
         },
         "selectivity_analysis": selectivity_info,
         "steps": steps
-    }
+    })
 
 def format_prediction_output(prediction: Dict) -> str:
     """
