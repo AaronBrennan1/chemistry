@@ -621,11 +621,285 @@ def generate_mechanism_steps(mechanism: str, rearrange: bool=False) -> str:
 # ----------------------------------------------------------------------
 # 11. Higher-Level Prediction Functions
 # ----------------------------------------------------------------------
+def generate_detailed_mechanism_steps(mechanism: str, substrate_data: Dict, condition_data: Dict, rearrange: bool=False) -> str:
+    """
+    Generates a detailed, substrate-specific mechanism description based on the 
+    substrate structure and reaction conditions.
+    
+    Args:
+        mechanism: The type of mechanism (SN1, SN2, etc.)
+        substrate_data: Dictionary containing substrate analysis
+        condition_data: Dictionary containing condition analysis
+        rearrange: Boolean indicating if carbocation rearrangement is likely
+        
+    Returns:
+        A string containing detailed mechanism steps specific to the substrate
+    """
+    # Extract useful information for description
+    substrate_type = substrate_data["substrate_type"].name if isinstance(substrate_data["substrate_type"], Enum) else substrate_data["substrate_type"]
+    canonical_smiles = substrate_data.get("canonical_smiles", "")
+    
+    # Get solvent type and other condition details
+    solvent_type = condition_data["solvent_type"].name if isinstance(condition_data["solvent_type"], Enum) else condition_data["solvent_type"]
+    is_benzylic = substrate_type == "BENZYLIC"
+    is_allylic = substrate_type == "ALLYLIC"
+    
+    # Building blocks for mechanism descriptions
+    substrate_desc = f"{substrate_type.lower()} substrate"
+    if is_benzylic:
+        substrate_desc = "benzylic substrate (stabilized by resonance with aromatic ring)"
+    elif is_allylic:
+        substrate_desc = "allylic substrate (stabilized by resonance with π-bond)"
+    
+    # Detailed mechanism steps based on mechanism type
+    if mechanism == "SN2":
+        description = (
+            f"SN2 Mechanism with {substrate_desc} ({canonical_smiles}):\n\n"
+            f"1) The nucleophile approaches the alpha carbon from the backside, opposite to the leaving group\n"
+            f"   - In {solvent_type} solvent, the nucleophile's reactivity is {'enhanced' if solvent_type == 'POLAR_APROTIC' else 'somewhat diminished'}\n"
+            f"2) A concerted process occurs where the nucleophile attacks while the leaving group departs\n"
+            f"   - The alpha carbon undergoes inversion of configuration as the nucleophile attacks\n"
+            f"   - A pentacoordinate transition state forms momentarily [Nu...C...LG]‡\n"
+            f"3) The C-LG bond breaks as the Nu-C bond forms, yielding product with inverted stereochemistry\n"
+            f"   - The reaction proceeds in a single step with second-order kinetics\n"
+            f"   - Rate = k[substrate][nucleophile]"
+        )
+        
+        # Add specific details based on substrate type
+        if substrate_type == "METHYL":
+            description += "\n\n*Note:* With a methyl substrate, steric hindrance is minimal, making SN2 highly favorable."
+        elif substrate_type == "PRIMARY":
+            description += "\n\n*Note:* Primary substrates have low steric hindrance around the reaction center, facilitating backside attack."
+        elif substrate_type == "SECONDARY":
+            description += "\n\n*Note:* Some steric hindrance is present, but the backside attack is still accessible."
+        elif is_benzylic or is_allylic:
+            description += f"\n\n*Note:* The {substrate_type.lower()[:-2]}ic position allows SN2 to compete with SN1 due to resonance stabilization of the transition state."
+        
+        return description
+        
+    elif mechanism == "SN1":
+        description = (
+            f"SN1 Mechanism with {substrate_desc} ({canonical_smiles}):\n\n"
+            f"1) Heterolytic cleavage of the C-LG bond (rate-determining step)\n"
+            f"   - The leaving group departs with the electron pair, forming a carbocation intermediate\n"
+            f"   - {solvent_type} solvent {'helps stabilize the charged intermediates' if solvent_type == 'POLAR_PROTIC' else 'is not optimal for stabilizing the charged intermediates'}\n"
+            f"2) The carbocation intermediate forms, with sp² hybridization (planar geometry)"
+        )
+        
+        if is_benzylic:
+            description += "\n   - The positive charge is delocalized through resonance with the aromatic ring, stabilizing the carbocation"
+        elif is_allylic:
+            description += "\n   - The positive charge is delocalized through resonance with the adjacent π-bond, stabilizing the carbocation"
+        elif substrate_type == "TERTIARY":
+            description += "\n   - The carbocation is stabilized by the electron-donating inductive effect of the three alkyl groups"
+        
+        if rearrange:
+            description += (
+                f"\n3) Carbocation rearrangement occurs to form a more stable carbocation\n"
+                f"   - Likely either a hydride shift (1,2-H shift) or alkyl shift to form a more substituted carbocation"
+            )
+            next_step = 4
+        else:
+            next_step = 3
+        
+        description += (
+            f"\n{next_step}) Nucleophilic attack on the (possibly rearranged) carbocation\n"
+            f"   - The nucleophile can approach from either face of the planar carbocation\n"
+            f"   - This typically results in racemization if the carbon was a stereocenter\n"
+            f"{next_step+1}) Final product formation with first-order kinetics\n"
+            f"   - Rate = k[substrate], independent of nucleophile concentration"
+        )
+        
+        return description
+        
+    elif mechanism == "E2":
+        description = (
+            f"E2 Mechanism with {substrate_desc} ({canonical_smiles}):\n\n"
+            f"1) The base approaches the β-hydrogen (a hydrogen on a carbon adjacent to the one with the leaving group)\n"
+            f"2) Concerted process with anti-periplanar geometry:\n"
+            f"   - The base abstracts the β-hydrogen as a proton\n"
+            f"   - The electrons from the C-H bond move to form a π-bond between the α and β carbons\n"
+            f"   - The electrons from the C-LG bond move to the leaving group\n"
+            f"3) Formation of an alkene product and the leaving group anion\n"
+            f"   - The reaction proceeds with second-order kinetics\n"
+            f"   - Rate = k[substrate][base]"
+        )
+        
+        # Add specific details based on substrate type
+        temperature = condition_data.get("temperature", 25.0)
+        if substrate_type == "TERTIARY" or temperature > 80:
+            description += (
+                f"\n\n*Note:* {'Tertiary substrates favor E2 over SN2 due to steric hindrance around the alpha carbon' if substrate_type == 'TERTIARY' else ''}"
+                f"{' and' if substrate_type == 'TERTIARY' and temperature > 80 else ''}"
+                f"{' Higher temperature ('+str(temperature)+' °C) increases the preference for elimination over substitution' if temperature > 80 else ''}"
+            )
+        
+        # Add details about possible Zaitsev vs Hofmann products
+        if substrate_type in ["SECONDARY", "TERTIARY"]:
+            description += "\n\n*Regioselectivity:* If multiple β-hydrogens are available, the reaction typically follows Zaitsev's rule, forming the more substituted alkene (thermodynamic product)."
+        
+        return description
+        
+    elif mechanism == "E1":
+        description = (
+            f"E1 Mechanism with {substrate_desc} ({canonical_smiles}):\n\n"
+            f"1) Heterolytic cleavage of the C-LG bond (rate-determining step)\n"
+            f"   - The leaving group departs with the electron pair, forming a carbocation intermediate\n"
+            f"   - {solvent_type} solvent {'helps stabilize the charged intermediates' if solvent_type == 'POLAR_PROTIC' else 'is not optimal for stabilizing the charged intermediates'}\n"
+            f"2) The carbocation intermediate forms, with sp² hybridization (planar geometry)"
+        )
+        
+        if is_benzylic:
+            description += "\n   - The positive charge is delocalized through resonance with the aromatic ring, stabilizing the carbocation"
+        elif is_allylic:
+            description += "\n   - The positive charge is delocalized through resonance with the adjacent π-bond, stabilizing the carbocation"
+        elif substrate_type == "TERTIARY":
+            description += "\n   - The carbocation is stabilized by the electron-donating inductive effect of the three alkyl groups"
+        
+        if rearrange:
+            description += (
+                f"\n3) Carbocation rearrangement occurs to form a more stable carbocation\n"
+                f"   - Likely either a hydride shift (1,2-H shift) or alkyl shift to form a more substituted carbocation"
+            )
+            next_step = 4
+        else:
+            next_step = 3
+        
+        description += (
+            f"\n{next_step}) Base-mediated deprotonation of a β-hydrogen\n"
+            f"   - The weak base removes a proton from a carbon adjacent to the carbocation\n"
+            f"   - The electrons from the C-H bond move to form a π-bond between the α and β carbons\n"
+            f"{next_step+1}) Formation of an alkene product\n"
+            f"   - The reaction proceeds with first-order kinetics\n"
+            f"   - Rate = k[substrate], independent of base concentration\n"
+            f"   - Typically follows Zaitsev's rule (more substituted alkene is favored)"
+        )
+        
+        return description
+        
+    elif mechanism == "Pericyclic":
+        if substrate_data.get("is_diene", False) and substrate_data.get("is_dienophile", False):
+            return "Error: Both diene and dienophile can't be in the same molecule for intermolecular Diels-Alder."
+        
+        if substrate_data.get("is_diene", False):
+            description = (
+                f"Pericyclic Mechanism (Diels-Alder) with diene ({canonical_smiles}):\n\n"
+                f"1) The diene adopts an s-cis conformation (if acyclic)\n"
+                f"2) Concerted cycloaddition occurs with a dienophile:\n"
+                f"   - The π electrons flow in a cyclic fashion\n"
+                f"   - Three π bonds are broken, and two new σ bonds and one new π bond form\n"
+                f"3) Formation of a cyclohexene derivative via [4+2] cycloaddition\n"
+                f"   - The reaction is stereospecific (preserves stereochemistry of reactants)\n"
+                f"   - Typically follows endo selectivity due to secondary orbital interactions"
+            )
+        elif substrate_data.get("is_dienophile", False):
+            description = (
+                f"Pericyclic Mechanism (Diels-Alder) with dienophile ({canonical_smiles}):\n\n"
+                f"1) Dienophile approaches a diene (which should be in s-cis conformation if acyclic)\n"
+                f"2) Concerted cycloaddition occurs:\n"
+                f"   - The π electrons flow in a cyclic fashion\n"
+                f"   - Three π bonds are broken, and two new σ bonds and one new π bond form\n"
+                f"3) Formation of a cyclohexene derivative via [4+2] cycloaddition\n"
+                f"   - The reaction is stereospecific (preserves stereochemistry of reactants)\n"
+                f"   - Electron-withdrawing groups on the dienophile enhance reactivity"
+            )
+        else:
+            description = (
+                f"Pericyclic Mechanism with ({canonical_smiles}):\n\n"
+                f"Generic pericyclic process with concerted electron reorganization\n"
+                f"This could potentially involve:\n"
+                f"- Electrocyclic ring opening/closing\n"
+                f"- Sigmatropic rearrangement\n"
+                f"- Group transfer reaction\n"
+                f"Details depend on specific substrate features not fully analyzed"
+            )
+        
+        return description
+        
+    elif mechanism == "Olefination":
+        if substrate_data.get("has_carbonyl", False):
+            description = (
+                f"Olefination Mechanism with carbonyl compound ({canonical_smiles}):\n\n"
+                f"1) A phosphorus ylide (typically Wittig reagent, Ph₃P=CR₂) approaches the carbonyl carbon\n"
+                f"2) Nucleophilic attack of the ylide on the carbonyl carbon:\n"
+                f"   - The ylide's carbanion attacks the electrophilic carbonyl carbon\n"
+                f"   - Forms a four-membered oxaphosphetane intermediate\n"
+                f"3) Decomposition of the oxaphosphetane:\n"
+                f"   - The four-membered ring collapses\n"
+                f"   - Formation of a C=C bond and triphenylphosphine oxide (Ph₃P=O)\n"
+                f"4) Formation of an alkene product:\n"
+                f"   - The geometry of the alkene (E/Z) depends on reaction conditions and ylide structure\n"
+                f"   - Stabilized ylides tend to give E-alkenes (thermodynamic control)\n"
+                f"   - Non-stabilized ylides tend to give Z-alkenes (kinetic control)"
+            )
+        else:
+            description = (
+                f"Olefination Mechanism would require a carbonyl compound, which appears to be missing in ({canonical_smiles}):\n\n"
+                f"This substrate lacks a carbonyl group for typical olefination reactions like Wittig."
+            )
+        
+        return description
+        
+    elif mechanism == "SNAr":
+        if substrate_data.get("vinylic_or_aryl_halide", False) and substrate_data.get("has_aromatic", False):
+            description = (
+                f"SNAr Mechanism with aryl halide ({canonical_smiles}):\n\n"
+                f"1) Nucleophilic attack at the ipso carbon (carbon bonded to the leaving group):\n"
+                f"   - The nucleophile attacks the electrophilic carbon bearing the leaving group\n"
+                f"   - Formation of a Meisenheimer complex (anionic σ-adduct)\n"
+                f"   - The negative charge is delocalized through resonance in the aromatic ring\n"
+                f"2) Elimination of the leaving group:\n"
+                f"   - Departure of the leaving group\n"
+                f"   - Rearomatization of the ring\n"
+                f"3) Formation of the substitution product\n"
+                f"   - Addition-elimination mechanism (not concerted)"
+            )
+            
+            # Add note about activating groups if present
+            description += (
+                f"\n\n*Note:* SNAr reactions are facilitated by electron-withdrawing groups (EWG) in the ortho/para positions\n"
+                f"which stabilize the negative charge in the Meisenheimer complex."
+            )
+        else:
+            description = (
+                f"SNAr Mechanism with ({canonical_smiles}):\n\n"
+                f"SNAr typically requires an aryl halide with electron-withdrawing groups.\n"
+                f"The current substrate may not be ideal for SNAr."
+            )
+        
+        return description
+        
+    elif mechanism == "Radical":
+        description = (
+            f"Radical Mechanism with ({canonical_smiles}):\n\n"
+            f"1) Initiation:\n"
+            f"   - Homolytic cleavage of an initiator (e.g., peroxide) to form radicals\n"
+            f"   - The radical abstracts an atom (typically hydrogen or halogen) from the substrate\n"
+            f"2) Propagation:\n"
+            f"   - The resulting substrate radical undergoes further reactions\n"
+            f"   - This may include addition to π bonds, fragmentation, or rearrangement\n"
+            f"   - Each step generates a new radical that continues the chain reaction\n"
+            f"3) Termination:\n"
+            f"   - Two radicals combine to form a stable product\n"
+            f"   - This step ends the chain reaction"
+        )
+        
+        if is_benzylic or is_allylic:
+            description += (
+                f"\n\n*Note:* {substrate_type.lower()} positions are particularly susceptible to radical reactions\n"
+                f"due to resonance stabilization of the resulting radical intermediate."
+            )
+        
+        return description
+    
+    else:
+        return f"No detailed steps available for '{mechanism}' with this substrate"
+
 def predict_mechanism(
     smiles: str,
     solvent: str,
     acid_base: str,
-    temperature: float,
+    temperature: float = 25.0,
     pressure: float = 1.0
 ) -> Dict:
     """
@@ -639,6 +913,7 @@ def predict_mechanism(
         "condition_analysis": {...},
         "selectivity_analysis": {...},
         "steps": "...",
+        "detailed_steps": "...",  # New field with substrate-specific mechanism
         "error": optional error message
       }
     """
@@ -662,10 +937,13 @@ def predict_mechanism(
     # Flag for carbocation rearrangement
     rearr = (best_mech == MechanismType.SN1.value) and substrate_data.get("carbocation_rearrangement_possible", False)
 
-    steps = generate_mechanism_steps(best_mech, rearrange=rearr)
+    # Generate both generic and detailed mechanism steps
+    generic_steps = generate_mechanism_steps(best_mech, rearrange=rearr)
+    detailed_steps = generate_detailed_mechanism_steps(best_mech, substrate_data, condition_data, rearrange=rearr)
+    
     selectivity_info = analyze_selectivity(substrate_data, condition_data)
 
-    return format_prediction_output({
+    return {
         "success": True,
         "ranking": dict(sorted_by_score),
         "best_mechanism": best_mech,
@@ -692,12 +970,13 @@ def predict_mechanism(
             "pressure": condition_data["pressure"],
         },
         "selectivity_analysis": selectivity_info,
-        "steps": steps
-    })
+        "steps": generic_steps,
+        "detailed_steps": detailed_steps
+    }
 
 def format_prediction_output(prediction: Dict) -> str:
     """
-    Produces a human-readable summary of the mechanism prediction.
+    Produces a human-readable summary of the mechanism prediction with detailed steps.
     """
     if not prediction.get("success", False):
         return f"ERROR: {prediction.get('error', 'Unknown error')}"
@@ -714,8 +993,9 @@ def format_prediction_output(prediction: Dict) -> str:
     else:
         result.append("")
 
-    result.append("MECHANISM STEPS:")
-    result.append(prediction["steps"] + "\n")
+    # Include the detailed, substrate-specific mechanism instead of generic steps
+    result.append("DETAILED MECHANISM:")
+    result.append(prediction.get("detailed_steps", "Not available") + "\n")
 
     sub = prediction["substrate_analysis"]
     result.append("SUBSTRATE ANALYSIS:")
@@ -737,7 +1017,7 @@ def format_prediction_output(prediction: Dict) -> str:
     result.append(f"  Pressure: {cond['pressure']} atm")
 
     sel = prediction["selectivity_analysis"]
-    result.append("\nSELECTIVITY ANALYSIS (placeholder):")
+    result.append("\nSELECTIVITY ANALYSIS:")
     for k, v in sel.items():
         result.append(f"  {k}: {v}")
 
