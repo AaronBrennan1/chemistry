@@ -775,196 +775,286 @@
     }
     
     function displayResults(data) {
-      // --- Best Mechanism ---
-      document.getElementById("bestMechanism").textContent =
-        data.best_mechanism || "No mechanism predicted";
-      
-      // --- Carbocation Rearrangement ---
-      const carbocationEl = document.getElementById("carbocationRearrangement");
-      if (typeof data.carbocation_rearrangement !== "undefined") {
-        carbocationEl.textContent = data.carbocation_rearrangement
-          ? "Yes (carbocation rearrangement is likely)"
-          : "No (no carbocation rearrangement detected)";
-      } else {
-        carbocationEl.textContent = "Not specified";
-      }
+  // Check data structure and normalize it
+  let mechanismData = data.mechanism || data;
+  
+  // --- Best Mechanism ---
+  document.getElementById("bestMechanism").textContent =
+    mechanismData.best_mechanism || "No mechanism predicted";
+  
+  // --- Carbocation Rearrangement ---
+  const carbocationEl = document.getElementById("carbocationRearrangement");
+  if (typeof mechanismData.carbocation_rearrangement !== "undefined") {
+    carbocationEl.textContent = mechanismData.carbocation_rearrangement
+      ? "Yes (carbocation rearrangement is likely)"
+      : "No (no carbocation rearrangement detected)";
+  } else {
+    carbocationEl.textContent = "Not specified";
+  }
 
-      // --- Mechanism Ranking ---
-      const rankingEl = document.getElementById("mechanismRanking");
-      rankingEl.innerHTML = "";
-      if (data.ranking) {
-        const mechanisms = Object.entries(data.ranking).slice(0, 5);
-        mechanisms.forEach(([mech, score]) => {
-          const item = document.createElement("div");
-          item.className = "mechanism-rank-item";
-          
-          const nameSpan = document.createElement("span");
-          nameSpan.className = "mechanism-name";
-          nameSpan.textContent = mech;
-          
-          const scoreSpan = document.createElement("span");
-          scoreSpan.className = "mechanism-score";
-          scoreSpan.textContent = `${(score * 100).toFixed(1)}%`;
-          
-          item.appendChild(nameSpan);
-          item.appendChild(scoreSpan);
-          rankingEl.appendChild(item);
-        });
-      } else {
-        rankingEl.textContent = "No ranking available";
-      }
-      
-      // --- Reaction Conditions ---
-      const conditionsEl = document.getElementById("reactionConditions");
-      conditionsEl.innerHTML = "";
-      
-      if (data.condition_analysis) {
-        const conditions = data.condition_analysis;
-        const conditionsList = document.createElement("ul");
-        conditionsList.style.listStyle = "none";
-        conditionsList.style.padding = "0";
+  // --- Mechanism Ranking ---
+  const rankingEl = document.getElementById("mechanismRanking");
+  rankingEl.innerHTML = "";
+  if (mechanismData.ranking) {
+    const mechanisms = Object.entries(mechanismData.ranking)
+      .filter(([_, score]) => score > 0) // Only show mechanisms with non-zero scores
+      .sort((a, b) => b[1] - a[1]) // Sort by score in descending order
+      .slice(0, 5); // Take top 5
+    
+    if (mechanisms.length > 0) {
+      mechanisms.forEach(([mech, score]) => {
+        const item = document.createElement("div");
+        item.className = "mechanism-rank-item";
         
-        for (const [key, value] of Object.entries(conditions)) {
-          // We can skip pressure if you prefer since it's always 1
-          if (key !== "pressure") {
-            const item = document.createElement("li");
-            item.style.marginBottom = "0.5rem";
-            
-            const keySpan = document.createElement("span");
-            keySpan.style.fontWeight = "600";
-            keySpan.style.marginRight = "0.5rem";
-            keySpan.textContent =
-              capitalizeFirstLetter(key.replace("_", " ")) + ": ";
-            item.appendChild(keySpan);
-            
-            const valSpan = document.createElement("span");
-            valSpan.textContent = value;
-            item.appendChild(valSpan);
-            
-            conditionsList.appendChild(item);
-          }
-        }
-        conditionsEl.appendChild(conditionsList);
-      } else {
-        conditionsEl.textContent = "No condition analysis available";
-      }
-      
-      // --- Substrate Analysis ---
-      const moleculeInfoEl = document.getElementById("moleculeInfo");
-      const structuralFeaturesEl = document.getElementById("structuralFeatures");
-      moleculeInfoEl.innerHTML = "";
-      structuralFeaturesEl.innerHTML = "";
-      
-      if (data.substrate_analysis) {
-        // Basic substrate info
-        const sub = data.substrate_analysis;
-        const infoList = document.createElement("ul");
-        infoList.style.listStyle = "none";
-        infoList.style.padding = "0";
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "mechanism-name";
+        nameSpan.textContent = mech;
         
-        // Display canonical_smiles, type, and vinylic_or_aryl_halide
-        const keysToShow = {
-          "Canonical SMILES": sub.canonical_smiles,
-          "Substrate Type": sub.type,
-          "Vinylic/Aryl Halide": sub.vinylic_or_aryl_halide
-        };
+        const scoreSpan = document.createElement("span");
+        scoreSpan.className = "mechanism-score";
+        scoreSpan.textContent = `${(score).toFixed(1)}%`;
         
-        for (const [label, value] of Object.entries(keysToShow)) {
-          const li = document.createElement("li");
-          li.style.marginBottom = "0.5rem";
-          
-          const keySpan = document.createElement("span");
-          keySpan.style.fontWeight = "600";
-          keySpan.style.marginRight = "0.5rem";
-          keySpan.textContent = label + ": ";
-          li.appendChild(keySpan);
-          
-          const valSpan = document.createElement("span");
-          valSpan.textContent = value;
-          li.appendChild(valSpan);
-          
-          infoList.appendChild(li);
-        }
+        item.appendChild(nameSpan);
+        item.appendChild(scoreSpan);
+        rankingEl.appendChild(item);
+      });
+    } else {
+      rankingEl.textContent = "No significant mechanisms predicted";
+    }
+  } else {
+    rankingEl.textContent = "No ranking available";
+  }
+  
+  // --- Reaction Conditions ---
+  const conditionsEl = document.getElementById("reactionConditions");
+  conditionsEl.innerHTML = "";
+  
+  if (mechanismData.condition_analysis) {
+    const conditions = mechanismData.condition_analysis;
+    const conditionsList = document.createElement("ul");
+    conditionsList.style.listStyle = "none";
+    conditionsList.style.padding = "0";
+    
+    for (const [key, value] of Object.entries(conditions)) {
+      // We can skip pressure if you prefer since it's always 1
+      if (key !== "pressure") {
+        const item = document.createElement("li");
+        item.style.marginBottom = "0.5rem";
         
-        moleculeInfoEl.appendChild(infoList);
+        const keySpan = document.createElement("span");
+        keySpan.style.fontWeight = "600";
+        keySpan.style.marginRight = "0.5rem";
+        keySpan.textContent =
+          capitalizeFirstLetter(key.replace(/_/g, " ")) + ": ";
+        item.appendChild(keySpan);
         
-        // Structural features: sub.features = { has_double_bond, has_aromatic, ... } (boolean)
-        const featuresObj = sub.features || {};
-        for (const [featKey, featValue] of Object.entries(featuresObj)) {
-          if (featValue) {
-            const tag = document.createElement("div");
-            tag.className = "feature-tag";
-            // Make a more readable label
-            const label = featKey.replace(/_/g, " "); 
-            tag.textContent = label;
-            structuralFeaturesEl.appendChild(tag);
-          }
-        }
-      } else {
-        moleculeInfoEl.textContent = "No substrate analysis available";
-        structuralFeaturesEl.textContent = "";
-      }
-      
-      // --- Selectivity Analysis ---
-      const selectivityEl = document.getElementById("selectivityAnalysis");
-      selectivityEl.innerHTML = "";
-      
-      if (data.selectivity_analysis) {
-        const analysisText = document.createElement("p");
-        analysisText.textContent = data.selectivity_analysis;
-        selectivityEl.appendChild(analysisText);
-      } else {
-        selectivityEl.textContent = "No selectivity analysis available";
-      }
-      
-      // --- Reaction Steps ---
-      const reactionStepsEl = document.getElementById("reactionSteps");
-      reactionStepsEl.innerHTML = "";
-      
-      if (data.steps && Array.isArray(data.steps)) {
-        data.steps.forEach((stepObj, index) => {
-          const stepCard = document.createElement("div");
-          stepCard.className = "step-card";
-          
-          const stepTitle = document.createElement("div");
-          stepTitle.className = "step-title";
-          stepTitle.textContent = stepObj.title || `Step ${index + 1}`;
-          stepCard.appendChild(stepTitle);
-          
-          const stepDescription = document.createElement("p");
-          stepDescription.textContent = stepObj.description || "No description available";
-          stepCard.appendChild(stepDescription);
-          
-          reactionStepsEl.appendChild(stepCard);
-        });
-      } else {
-        reactionStepsEl.textContent = "No reaction steps available";
-      }
-      
-      // --- Detailed Steps ---
-      const detailedStepsEl = document.getElementById("detailedSteps");
-      detailedStepsEl.innerHTML = "";
-      
-      if (data.detailed_steps && Array.isArray(data.detailed_steps)) {
-        data.detailed_steps.forEach((detailObj, index) => {
-          const detailCard = document.createElement("div");
-          detailCard.className = "step-card";
-          
-          const detailTitle = document.createElement("div");
-          detailTitle.className = "step-title";
-          detailTitle.textContent = detailObj.title || `Detailed Step ${index + 1}`;
-          detailCard.appendChild(detailTitle);
-          
-          const detailDescription = document.createElement("p");
-          detailDescription.textContent = detailObj.description || "No description available";
-          detailCard.appendChild(detailDescription);
-          
-          detailedStepsEl.appendChild(detailCard);
-        });
-      } else {
-        detailedStepsEl.textContent = "No detailed steps available";
+        const valSpan = document.createElement("span");
+        valSpan.textContent = value;
+        item.appendChild(valSpan);
+        
+        conditionsList.appendChild(item);
       }
     }
+    conditionsEl.appendChild(conditionsList);
+  } else {
+    conditionsEl.textContent = "No condition analysis available";
+  }
+  
+  // --- Substrate Analysis ---
+  const moleculeInfoEl = document.getElementById("moleculeInfo");
+  const structuralFeaturesEl = document.getElementById("structuralFeatures");
+  moleculeInfoEl.innerHTML = "";
+  structuralFeaturesEl.innerHTML = "";
+  
+  if (mechanismData.substrate_analysis) {
+    // Basic substrate info
+    const sub = mechanismData.substrate_analysis;
+    const infoList = document.createElement("ul");
+    infoList.style.listStyle = "none";
+    infoList.style.padding = "0";
+    
+    // Display canonical_smiles, type, and vinylic_or_aryl_halide
+    const keysToShow = {
+      "Canonical SMILES": sub.canonical_smiles,
+      "Substrate Type": sub.type,
+      "Vinylic/Aryl Halide": sub.vinylic_or_aryl_halide ? "Yes" : "No"
+    };
+    
+    for (const [label, value] of Object.entries(keysToShow)) {
+      const li = document.createElement("li");
+      li.style.marginBottom = "0.5rem";
+      
+      const keySpan = document.createElement("span");
+      keySpan.style.fontWeight = "600";
+      keySpan.style.marginRight = "0.5rem";
+      keySpan.textContent = label + ": ";
+      li.appendChild(keySpan);
+      
+      const valSpan = document.createElement("span");
+      valSpan.textContent = value;
+      li.appendChild(valSpan);
+      
+      infoList.appendChild(li);
+    }
+    
+    moleculeInfoEl.appendChild(infoList);
+    
+    // Structural features: sub.features = { has_double_bond, has_aromatic, ... } (boolean)
+    const featuresObj = sub.features || {};
+    for (const [featKey, featValue] of Object.entries(featuresObj)) {
+      if (featValue) {
+        const tag = document.createElement("div");
+        tag.className = "feature-tag";
+        // Make a more readable label
+        const label = featKey.replace(/_/g, " ").replace(/has /g, "");
+        tag.textContent = capitalizeFirstLetter(label);
+        structuralFeaturesEl.appendChild(tag);
+      }
+    }
+  } else {
+    moleculeInfoEl.textContent = "No substrate analysis available";
+    structuralFeaturesEl.textContent = "";
+  }
+  
+  // --- Selectivity Analysis ---
+  const selectivityEl = document.getElementById("selectivityAnalysis");
+  selectivityEl.innerHTML = "";
+  
+  if (mechanismData.selectivity_analysis) {
+    const selectivity = mechanismData.selectivity_analysis;
+    const selectivityList = document.createElement("ul");
+    selectivityList.style.listStyle = "none";
+    selectivityList.style.padding = "0";
+    
+    for (const [key, value] of Object.entries(selectivity)) {
+      const li = document.createElement("li");
+      li.style.marginBottom = "0.5rem";
+      
+      const keySpan = document.createElement("span");
+      keySpan.style.fontWeight = "600";
+      keySpan.style.marginRight = "0.5rem";
+      keySpan.textContent = capitalizeFirstLetter(key) + ": ";
+      li.appendChild(keySpan);
+      
+      const valSpan = document.createElement("span");
+      valSpan.textContent = value;
+      li.appendChild(valSpan);
+      
+      selectivityList.appendChild(li);
+    }
+    
+    selectivityEl.appendChild(selectivityList);
+  } else {
+    selectivityEl.textContent = "No selectivity analysis available";
+  }
+  
+  // --- Reaction Steps ---
+  const reactionStepsEl = document.getElementById("reactionSteps");
+  reactionStepsEl.innerHTML = "";
+  
+  if (mechanismData.steps) {
+    // Check if steps is a string (as in your data) or an array (as in your original code)
+    if (typeof mechanismData.steps === "string") {
+      const stepsArray = mechanismData.steps.split("\n").filter(step => step.trim());
+      
+      stepsArray.forEach((step, index) => {
+        const stepCard = document.createElement("div");
+        stepCard.className = "step-card";
+        
+        const stepTitle = document.createElement("div");
+        stepTitle.className = "step-title";
+        stepTitle.textContent = `Step ${index + 1}`;
+        stepCard.appendChild(stepTitle);
+        
+        const stepDescription = document.createElement("p");
+        stepDescription.textContent = step.trim();
+        stepCard.appendChild(stepDescription);
+        
+        reactionStepsEl.appendChild(stepCard);
+      });
+    } else if (Array.isArray(mechanismData.steps)) {
+      // Original array handling code
+      mechanismData.steps.forEach((stepObj, index) => {
+        const stepCard = document.createElement("div");
+        stepCard.className = "step-card";
+        
+        const stepTitle = document.createElement("div");
+        stepTitle.className = "step-title";
+        stepTitle.textContent = stepObj.title || `Step ${index + 1}`;
+        stepCard.appendChild(stepTitle);
+        
+        const stepDescription = document.createElement("p");
+        stepDescription.textContent = stepObj.description || "No description available";
+        stepCard.appendChild(stepDescription);
+        
+        reactionStepsEl.appendChild(stepCard);
+      });
+    }
+  } else {
+    reactionStepsEl.textContent = "No reaction steps available";
+  }
+  
+  // --- Detailed Steps ---
+  const detailedStepsEl = document.getElementById("detailedSteps");
+  detailedStepsEl.innerHTML = "";
+  
+  if (mechanismData.detailed_steps) {
+    // Check if detailed_steps is a string (as in your data) or an array (as in your original code)
+    if (typeof mechanismData.detailed_steps === "string") {
+      const sections = mechanismData.detailed_steps.split("\n\n");
+      
+      sections.forEach((section, index) => {
+        const detailCard = document.createElement("div");
+        detailCard.className = "step-card";
+        
+        // Try to extract a title from the first line if it looks like a title
+        const lines = section.split("\n");
+        let title = "";
+        let description = section;
+        
+        if (lines[0] && (lines[0].includes(")") || lines[0].endsWith(":"))) {
+          title = lines[0].trim();
+          description = lines.slice(1).join("\n").trim();
+        }
+        
+        const detailTitle = document.createElement("div");
+        detailTitle.className = "step-title";
+        detailTitle.textContent = title || `Detail ${index + 1}`;
+        detailCard.appendChild(detailTitle);
+        
+        const detailDescription = document.createElement("p");
+        detailDescription.textContent = description;
+        detailCard.appendChild(detailDescription);
+        
+        detailedStepsEl.appendChild(detailCard);
+      });
+    } else if (Array.isArray(mechanismData.detailed_steps)) {
+      // Original array handling code
+      mechanismData.detailed_steps.forEach((detailObj, index) => {
+        const detailCard = document.createElement("div");
+        detailCard.className = "step-card";
+        
+        const detailTitle = document.createElement("div");
+        detailTitle.className = "step-title";
+        detailTitle.textContent = detailObj.title || `Detailed Step ${index + 1}`;
+        detailCard.appendChild(detailTitle);
+        
+        const detailDescription = document.createElement("p");
+        detailDescription.textContent = detailObj.description || "No description available";
+        detailCard.appendChild(detailDescription);
+        
+        detailedStepsEl.appendChild(detailCard);
+      });
+    }
+  } else {
+    detailedStepsEl.textContent = "No detailed steps available";
+  }
+  
+  // Helper function for formatting
+  function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+  }
+}
   </script>
 </body>
 </html>
