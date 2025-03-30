@@ -488,6 +488,16 @@
             </h3>
             <div class="mechanism-rank" id="mechanismRanking"></div>
           </div>
+
+          <div class="result-section">
+            <h3 class="result-section-title">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9l10.5 10.5m-6-10.5l3 3m-9-3l3 3" />
+              </svg>
+              Carbocation Rearrangement
+            </h3>
+            <div class="result-card" id="carbocationRearrangement"></div>
+          </div>
           
           <div class="result-section">
             <h3 class="result-section-title">
@@ -749,7 +759,7 @@
         
         // Parse the response as JSON
         const result = await response.json();
-        console.log(result)
+        console.log(result);
         
         // Hide loader, show results
         document.getElementById("loader").classList.remove("show");
@@ -766,8 +776,19 @@
     
     function displayResults(data) {
       // --- Best Mechanism ---
-      document.getElementById("bestMechanism").textContent = data.best_mechanism || "No mechanism predicted";
+      document.getElementById("bestMechanism").textContent =
+        data.best_mechanism || "No mechanism predicted";
       
+      // --- Carbocation Rearrangement ---
+      const carbocationEl = document.getElementById("carbocationRearrangement");
+      if (typeof data.carbocation_rearrangement !== "undefined") {
+        carbocationEl.textContent = data.carbocation_rearrangement
+          ? "Yes (carbocation rearrangement is likely)"
+          : "No (no carbocation rearrangement detected)";
+      } else {
+        carbocationEl.textContent = "Not specified";
+      }
+
       // --- Mechanism Ranking ---
       const rankingEl = document.getElementById("mechanismRanking");
       rankingEl.innerHTML = "";
@@ -804,7 +825,7 @@
         conditionsList.style.padding = "0";
         
         for (const [key, value] of Object.entries(conditions)) {
-          // Skip pressure as it's always 1
+          // We can skip pressure if you prefer since it's always 1
           if (key !== "pressure") {
             const item = document.createElement("li");
             item.style.marginBottom = "0.5rem";
@@ -812,7 +833,8 @@
             const keySpan = document.createElement("span");
             keySpan.style.fontWeight = "600";
             keySpan.style.marginRight = "0.5rem";
-            keySpan.textContent = capitalizeFirstLetter(key.replace("_", " ")) + ": ";
+            keySpan.textContent =
+              capitalizeFirstLetter(key.replace("_", " ")) + ": ";
             item.appendChild(keySpan);
             
             const valSpan = document.createElement("span");
@@ -827,24 +849,34 @@
         conditionsEl.textContent = "No condition analysis available";
       }
       
-      // --- Molecule Information ---
+      // --- Substrate Analysis ---
       const moleculeInfoEl = document.getElementById("moleculeInfo");
+      const structuralFeaturesEl = document.getElementById("structuralFeatures");
       moleculeInfoEl.innerHTML = "";
+      structuralFeaturesEl.innerHTML = "";
       
-      if (data.molecule_info) {
-        // Assuming molecule_info is an object with key-value pairs
+      if (data.substrate_analysis) {
+        // Basic substrate info
+        const sub = data.substrate_analysis;
         const infoList = document.createElement("ul");
         infoList.style.listStyle = "none";
         infoList.style.padding = "0";
         
-        for (const [key, value] of Object.entries(data.molecule_info)) {
+        // Display canonical_smiles, type, and vinylic_or_aryl_halide
+        const keysToShow = {
+          "Canonical SMILES": sub.canonical_smiles,
+          "Substrate Type": sub.type,
+          "Vinylic/Aryl Halide": sub.vinylic_or_aryl_halide
+        };
+        
+        for (const [label, value] of Object.entries(keysToShow)) {
           const li = document.createElement("li");
           li.style.marginBottom = "0.5rem";
           
           const keySpan = document.createElement("span");
           keySpan.style.fontWeight = "600";
           keySpan.style.marginRight = "0.5rem";
-          keySpan.textContent = capitalizeFirstLetter(key.replace("_", " ")) + ": ";
+          keySpan.textContent = label + ": ";
           li.appendChild(keySpan);
           
           const valSpan = document.createElement("span");
@@ -853,24 +885,24 @@
           
           infoList.appendChild(li);
         }
+        
         moleculeInfoEl.appendChild(infoList);
+        
+        // Structural features: sub.features = { has_double_bond, has_aromatic, ... } (boolean)
+        const featuresObj = sub.features || {};
+        for (const [featKey, featValue] of Object.entries(featuresObj)) {
+          if (featValue) {
+            const tag = document.createElement("div");
+            tag.className = "feature-tag";
+            // Make a more readable label
+            const label = featKey.replace(/_/g, " "); 
+            tag.textContent = label;
+            structuralFeaturesEl.appendChild(tag);
+          }
+        }
       } else {
-        moleculeInfoEl.textContent = "No molecule info available";
-      }
-      
-      // --- Structural Features ---
-      const structuralFeaturesEl = document.getElementById("structuralFeatures");
-      structuralFeaturesEl.innerHTML = "";
-      
-      if (data.structural_features && Array.isArray(data.structural_features)) {
-        data.structural_features.forEach(feature => {
-          const tag = document.createElement("div");
-          tag.className = "feature-tag";
-          tag.textContent = feature;
-          structuralFeaturesEl.appendChild(tag);
-        });
-      } else {
-        structuralFeaturesEl.textContent = "No structural features detected";
+        moleculeInfoEl.textContent = "No substrate analysis available";
+        structuralFeaturesEl.textContent = "";
       }
       
       // --- Selectivity Analysis ---
@@ -878,7 +910,6 @@
       selectivityEl.innerHTML = "";
       
       if (data.selectivity_analysis) {
-        // If it's text or an object, handle accordingly
         const analysisText = document.createElement("p");
         analysisText.textContent = data.selectivity_analysis;
         selectivityEl.appendChild(analysisText);
