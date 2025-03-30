@@ -1,1 +1,92 @@
-<h1>Hello world! :)</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Reaction Mechanism Predictor</title>
+  <script type="text/javascript" src="https://jsme-editor.github.io/dist/jsme/jsme.nocache.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f2f2f2;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    textarea, input, button {
+      font-size: 16px;
+      padding: 10px;
+      margin-top: 10px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Chemical Reaction Mechanism Predictor</h1>
+
+    <div class="section">
+      <h3>1. Enter SMILES String</h3>
+      <textarea id="smilesInput" rows="4" placeholder="C(C(=O)O)N (e.g., glycine)"></textarea>
+    </div>
+
+    <div class="section">
+      <h3>2. Or Draw Molecule</h3>
+      <div id="jsmeContainer" style="width: 100%; height: 400px;"></div>
+      <button onclick="getSmiles()">Convert Drawing to SMILES</button>
+    </div>
+
+    <div class="section">
+      <h3>3. Resulting SMILES</h3>
+      <input type="text" id="convertedSmiles" readonly>
+    </div>
+
+    <div class="section">
+      <button onclick="submitSmiles()">Predict Reaction Mechanism</button>
+    </div>
+  </div>
+
+  <script>
+    let jsmeApplet;
+
+    function jsmeOnLoad() {
+      jsmeApplet = new JSApplet.JSME("jsmeContainer", "100%", "400px", {
+        options: "oldlook,star"
+      });
+    }
+
+    function getSmiles() {
+      const smiles = jsmeApplet.smiles();
+      document.getElementById("convertedSmiles").value = smiles;
+      document.getElementById("smilesInput").value = smiles;
+    }
+
+    function submitSmiles() {
+      const smiles = document.getElementById("smilesInput").value.trim();
+      if (!smiles) {
+        alert("Please enter or draw a molecule first.");
+        return;
+      }
+      // You could POST this to your FastAPI backend
+      alert("Submitting SMILES: " + smiles);
+      // fetch("/predict", { method: "POST", body: JSON.stringify({ smiles }) }) ...
+    }
+  </script>
+</body>
+</html>
