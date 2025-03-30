@@ -976,49 +976,74 @@ def predict_mechanism(
 
 def format_prediction_output(prediction: Dict) -> str:
     """
-    Produces a human-readable summary of the mechanism prediction with detailed steps.
+    Produces an HTML-formatted summary of the mechanism prediction with detailed steps.
     """
+    # If there's an error, just return a simple HTML paragraph.
     if not prediction.get("success", False):
-        return f"ERROR: {prediction.get('error', 'Unknown error')}"
+        return f"<p><strong>ERROR:</strong> {prediction.get('error', 'Unknown error')}</p>"
 
-    result = []
-    result.append("=== PREDICTED MECHANISMS (SCORES) ===")
-    for mech, sc in prediction["ranking"].items():
-        result.append(f"  {mech}: {sc:.1f}")
+    # Start building an array of HTML segments, which we'll join at the end.
+    html_output = []
+    
+    # Header for the mechanism scores
+    html_output.append("<h3>Predicted Mechanisms (Scores)</h3>")
+    html_output.append("<ul>")
+    for mech, score in prediction["ranking"].items():
+        html_output.append(f"<li>{mech}: {score:.1f}</li>")
+    html_output.append("</ul>")
 
+    # Best mechanism, plus carbocation rearrangement message if applicable
     best = prediction["best_mechanism"]
-    result.append(f"\nBEST MECHANISM: {best}")
+    html_output.append(f"<h4>Best Mechanism: {best}</h4>")
     if prediction.get("carbocation_rearrangement", False):
-        result.append("(Carbocation rearrangement likely for SN1.)\n")
-    else:
-        result.append("")
+        html_output.append("<p><strong>Carbocation rearrangement likely for SN1.</strong></p>")
+    
+    # Detailed mechanism: replace newline characters with <br>, and replace '*Note:*' with a bold "Note:".
+    detailed_steps = prediction.get("detailed_steps", "Not available")
+    # Convert newlines to <br> for HTML
+    detailed_steps_html = detailed_steps.replace("\n", "<br>")
+    # Replace '*Note:*' with HTML bold, for example
+    detailed_steps_html = detailed_steps_html.replace("*Note:*", "<strong>Note:</strong>")
 
-    # Include the detailed, substrate-specific mechanism instead of generic steps
-    result.append("DETAILED MECHANISM:")
-    result.append(prediction.get("detailed_steps", "Not available") + "\n")
+    html_output.append("<h4>Detailed Mechanism</h4>")
+    html_output.append(f"<p>{detailed_steps_html}</p>")
 
+    # Substrate analysis
     sub = prediction["substrate_analysis"]
-    result.append("SUBSTRATE ANALYSIS:")
-    result.append(f"  Canonical SMILES: {sub['canonical_smiles']}")
-    result.append(f"  Type: {sub['type']}")
+    html_output.append("<h4>Substrate Analysis</h4>")
+    html_output.append(f"<p>Canonical SMILES: {sub['canonical_smiles']}<br>")
+    html_output.append(f"Type: {sub['type']}<br>")
     if sub['vinylic_or_aryl_halide']:
-        result.append("  (Aryl or vinylic halide)")
+        html_output.append("(Aryl or vinylic halide)<br>")
+    
+    # Any 'features' that are True, list them
+    feature_lines = []
     for feat, val in sub["features"].items():
         if val:
-            result.append(f"  {feat.replace('_',' ').title()}: Yes")
+            nice_feat_name = feat.replace("_", " ").title()  # e.g. "has_aromatic" -> "Has Aromatic"
+            feature_lines.append(nice_feat_name)
+    if feature_lines:
+        html_output.append("Features:<br> • " + "<br> • ".join(feature_lines))
 
+    html_output.append("</p>")
+
+    # Condition analysis
     cond = prediction["condition_analysis"]
-    result.append("\nCONDITION ANALYSIS:")
-    result.append(f"  Solvent Type: {cond['solvent_type']}")
-    result.append(f"  Environment Type: {cond['environment_type']}")
-    result.append(f"  Base Strength: {cond['base_strength']}")
-    result.append(f"  Nucleophile Strength: {cond['nucleophile_strength']}")
-    result.append(f"  Temperature: {cond['temperature']} °C")
-    result.append(f"  Pressure: {cond['pressure']} atm")
+    html_output.append("<h4>Condition Analysis</h4>")
+    html_output.append(f"<p>Solvent Type: {cond['solvent_type']}<br>")
+    html_output.append(f"Environment Type: {cond['environment_type']}<br>")
+    html_output.append(f"Base Strength: {cond['base_strength']}<br>")
+    html_output.append(f"Nucleophile Strength: {cond['nucleophile_strength']}<br>")
+    html_output.append(f"Temperature: {cond['temperature']} °C<br>")
+    html_output.append(f"Pressure: {cond['pressure']} atm</p>")
 
+    # Selectivity analysis
     sel = prediction["selectivity_analysis"]
-    result.append("\nSELECTIVITY ANALYSIS:")
-    for k, v in sel.items():
-        result.append(f"  {k}: {v}")
+    html_output.append("<h4>Selectivity Analysis</h4>")
+    html_output.append("<ul>")
+    for key, val in sel.items():
+        html_output.append(f"<li>{key}: {val}</li>")
+    html_output.append("</ul>")
 
-    return "\n".join(result)
+    # Join everything into a single string of HTML
+    return "\n".join(html_output)
