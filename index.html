@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>Reaction Mechanism Predictor</title>
   <script type="text/javascript" src="https://jsme-editor.github.io/dist/jsme/jsme.nocache.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -764,18 +764,15 @@
     }
     
     function displayResults(data) {
-      // Best Mechanism
+      // --- Best Mechanism ---
       document.getElementById("bestMechanism").textContent = data.best_mechanism || "No mechanism predicted";
       
-      // Mechanism Ranking
+      // --- Mechanism Ranking ---
       const rankingEl = document.getElementById("mechanismRanking");
       rankingEl.innerHTML = "";
-      
       if (data.ranking) {
-        // Get the top 5 or fewer mechanisms
         const mechanisms = Object.entries(data.ranking).slice(0, 5);
-        
-        mechanisms.forEach(([mech, score], index) => {
+        mechanisms.forEach(([mech, score]) => {
           const item = document.createElement("div");
           item.className = "mechanism-rank-item";
           
@@ -795,20 +792,147 @@
         rankingEl.textContent = "No ranking available";
       }
       
-      // Reaction Conditions
+      // --- Reaction Conditions ---
       const conditionsEl = document.getElementById("reactionConditions");
       conditionsEl.innerHTML = "";
       
       if (data.condition_analysis) {
         const conditions = data.condition_analysis;
-        
         const conditionsList = document.createElement("ul");
         conditionsList.style.listStyle = "none";
         conditionsList.style.padding = "0";
         
         for (const [key, value] of Object.entries(conditions)) {
-          if (key !== "pressure") { // Skip pressure as it's always 1
+          // Skip pressure as it's always 1
+          if (key !== "pressure") {
             const item = document.createElement("li");
             item.style.marginBottom = "0.5rem";
             
-            const keySpan = document.createElement
+            const keySpan = document.createElement("span");
+            keySpan.style.fontWeight = "600";
+            keySpan.style.marginRight = "0.5rem";
+            keySpan.textContent = capitalizeFirstLetter(key.replace("_", " ")) + ": ";
+            item.appendChild(keySpan);
+            
+            const valSpan = document.createElement("span");
+            valSpan.textContent = value;
+            item.appendChild(valSpan);
+            
+            conditionsList.appendChild(item);
+          }
+        }
+        conditionsEl.appendChild(conditionsList);
+      } else {
+        conditionsEl.textContent = "No condition analysis available";
+      }
+      
+      // --- Molecule Information ---
+      const moleculeInfoEl = document.getElementById("moleculeInfo");
+      moleculeInfoEl.innerHTML = "";
+      
+      if (data.molecule_info) {
+        // Assuming molecule_info is an object with key-value pairs
+        const infoList = document.createElement("ul");
+        infoList.style.listStyle = "none";
+        infoList.style.padding = "0";
+        
+        for (const [key, value] of Object.entries(data.molecule_info)) {
+          const li = document.createElement("li");
+          li.style.marginBottom = "0.5rem";
+          
+          const keySpan = document.createElement("span");
+          keySpan.style.fontWeight = "600";
+          keySpan.style.marginRight = "0.5rem";
+          keySpan.textContent = capitalizeFirstLetter(key.replace("_", " ")) + ": ";
+          li.appendChild(keySpan);
+          
+          const valSpan = document.createElement("span");
+          valSpan.textContent = value;
+          li.appendChild(valSpan);
+          
+          infoList.appendChild(li);
+        }
+        moleculeInfoEl.appendChild(infoList);
+      } else {
+        moleculeInfoEl.textContent = "No molecule info available";
+      }
+      
+      // --- Structural Features ---
+      const structuralFeaturesEl = document.getElementById("structuralFeatures");
+      structuralFeaturesEl.innerHTML = "";
+      
+      if (data.structural_features && Array.isArray(data.structural_features)) {
+        data.structural_features.forEach(feature => {
+          const tag = document.createElement("div");
+          tag.className = "feature-tag";
+          tag.textContent = feature;
+          structuralFeaturesEl.appendChild(tag);
+        });
+      } else {
+        structuralFeaturesEl.textContent = "No structural features detected";
+      }
+      
+      // --- Selectivity Analysis ---
+      const selectivityEl = document.getElementById("selectivityAnalysis");
+      selectivityEl.innerHTML = "";
+      
+      if (data.selectivity_analysis) {
+        // If it's text or an object, handle accordingly
+        const analysisText = document.createElement("p");
+        analysisText.textContent = data.selectivity_analysis;
+        selectivityEl.appendChild(analysisText);
+      } else {
+        selectivityEl.textContent = "No selectivity analysis available";
+      }
+      
+      // --- Reaction Steps ---
+      const reactionStepsEl = document.getElementById("reactionSteps");
+      reactionStepsEl.innerHTML = "";
+      
+      if (data.steps && Array.isArray(data.steps)) {
+        data.steps.forEach((stepObj, index) => {
+          const stepCard = document.createElement("div");
+          stepCard.className = "step-card";
+          
+          const stepTitle = document.createElement("div");
+          stepTitle.className = "step-title";
+          stepTitle.textContent = stepObj.title || `Step ${index + 1}`;
+          stepCard.appendChild(stepTitle);
+          
+          const stepDescription = document.createElement("p");
+          stepDescription.textContent = stepObj.description || "No description available";
+          stepCard.appendChild(stepDescription);
+          
+          reactionStepsEl.appendChild(stepCard);
+        });
+      } else {
+        reactionStepsEl.textContent = "No reaction steps available";
+      }
+      
+      // --- Detailed Steps ---
+      const detailedStepsEl = document.getElementById("detailedSteps");
+      detailedStepsEl.innerHTML = "";
+      
+      if (data.detailed_steps && Array.isArray(data.detailed_steps)) {
+        data.detailed_steps.forEach((detailObj, index) => {
+          const detailCard = document.createElement("div");
+          detailCard.className = "step-card";
+          
+          const detailTitle = document.createElement("div");
+          detailTitle.className = "step-title";
+          detailTitle.textContent = detailObj.title || `Detailed Step ${index + 1}`;
+          detailCard.appendChild(detailTitle);
+          
+          const detailDescription = document.createElement("p");
+          detailDescription.textContent = detailObj.description || "No description available";
+          detailCard.appendChild(detailDescription);
+          
+          detailedStepsEl.appendChild(detailCard);
+        });
+      } else {
+        detailedStepsEl.textContent = "No detailed steps available";
+      }
+    }
+  </script>
+</body>
+</html>
